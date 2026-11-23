@@ -126,12 +126,22 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 .rline b{color:var(--ink);font-size:24px;font-weight:500}
 #rOk{margin-top:18px}
 .auth{height:100%;max-width:480px;margin:0 auto;padding:20px 24px;display:flex;flex-direction:column;justify-content:center;gap:18px}
-.auth .logo{height:56px;width:auto;align-self:flex-start;object-fit:contain}
+.auth .logo{height:56px;width:auto;align-self:center;object-fit:contain}
 .auth h1{font-size:32px;font-weight:500;margin-bottom:6px}
 .auth .dl{margin:0 0 14px}
 .auth .cta{margin-top:4px}
 .lnk{background:none;border:0;color:var(--accent);font:600 15px var(--sans);cursor:pointer;padding:10px 0;text-align:left}
 .ag{font-size:.62em;color:var(--muted);font-weight:600}
+.ex{padding:10px 0;border-bottom:1px solid var(--line)}
+.exh{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.exh b{font-weight:600;font-size:15px}
+.addset{background:none;border:1px solid var(--accent);color:var(--accent);border-radius:6px;font:600 13px var(--sans);padding:4px 10px;cursor:pointer;white-space:nowrap}
+.st{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--muted);padding:2px 0}
+.st button{background:none;border:0;color:var(--muted);font-size:18px;cursor:pointer;padding:2px 8px;line-height:1}
+.types.two{grid-template-columns:1fr 1fr}
+.mdb{border:0;border-radius:8px;background:var(--card);color:var(--ink);font:600 16px var(--sans);padding:14px;cursor:pointer}
+.mdb[aria-pressed="true"]{background:var(--accent);color:#fff}
+.sd-r{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
 </style>
 </head>
 <body>
@@ -196,13 +206,18 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
   <div class="form">
     <label class="w2">Gerakan<select id="fn" aria-label="Pilih gerakan"></select></label>
     <label>Beban (kg)<input id="fk" type="text" inputmode="decimal" autocomplete="off" placeholder="0"></label>
-    <label>Set<input id="fs" type="number" inputmode="numeric" min="1" placeholder="0"></label>
+    <label>Jumlah set<input id="fs" type="number" inputmode="numeric" min="1" placeholder="1"></label>
     <label>Repetisi<input id="fr" type="number" inputmode="numeric" min="1" placeholder="0"></label>
   </div>
   <div class="err" id="werr" role="alert"></div>
-  <button class="save" id="add" style="margin-top:0">Tambah</button>
+  <button class="save" id="add" style="margin-top:0">Tambah set</button>
   <div class="list" id="list"></div>
   <div class="cform" id="cform">
+    <div class="ask" style="margin-top:4px">Jenis kardio</div>
+    <div class="types two" id="modes" style="margin-bottom:14px">
+      <button class="mdb" type="button" data-m="Treadmill" aria-pressed="false">Treadmill</button>
+      <button class="mdb" type="button" data-m="Luar Ruangan" aria-pressed="false">Luar Ruangan</button>
+    </div>
     <label class="dl">Jarak (km)<input id="cd" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" aria-label="Jarak dalam kilometer"></label>
     <div class="err" id="cerr" role="alert"></div>
     <div class="note">Stopwatch sedang berjalan. Isi jarak, lalu tekan Selesai untuk melihat pace.</div>
@@ -234,6 +249,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
     <div class="pfh"><span class="av lg" id="avE"></span><div><button class="pfb" id="pick" type="button">Ganti foto</button><button class="pfb" id="rm" type="button">Hapus foto</button></div></div>
     <input type="file" id="file" accept="image/*" hidden>
     <label class="dl">Nama<input id="pn" type="text" maxlength="24" autocomplete="off"></label>
+    <label class="dl">Tanggal lahir<input id="pb" type="date"></label>
     <div class="err" id="perr" role="alert"></div>
     <button class="save" id="pSave">Simpan</button>
     <button class="close" id="pCancel">Batal</button>
@@ -319,7 +335,14 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
   function fmt(n,d){return n.toFixed(d===undefined?1:d).replace(".",",")}
   function fdate(s){var p=String(s).split("-");return new Date(+p[0],+p[1]-1,+p[2]).toLocaleDateString("id-ID",{day:"numeric",month:"short"})}
   function esc(t){return String(t).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
-  function vol(items){return items.reduce(function(a,i){return a+i.k*i.s*i.r},0)}
+  function setsOf(it){
+    if(Array.isArray(it.sets))return it.sets;
+    var a=[],c=Math.max(1,it.s|0);
+    for(var i=0;i<c;i++)a.push({k:it.k,r:it.r});
+    return a;
+  }
+  function vol(items){return items.reduce(function(a,it){return a+setsOf(it).reduce(function(b,x){return b+x.k*x.r},0)},0)}
+  function kg(k){return String(k).replace(".",",")}
   var UP='<path d="M12 19V5"/><path d="M6 11l6-6 6 6"/>',DN='<path d="M12 5v14"/><path d="M6 13l6 6 6-6"/>',FL='<path d="M5 12h14"/>';
   var SV='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
   var type=null,armed=null,tm=null;
@@ -354,12 +377,16 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
     var rl=function(a,b){return '<div class="rline"><span>'+a+'</span><b>'+esc(b)+'</b></div>'},h="";
     $("sdt").textContent=label(x.t);$("sdd").textContent=fdateFull(x.d);
     if(x.t==="CARDIO"){
-      h+=rl("Jarak",x.dist>0?fmt(x.dist,2)+" km":"–")+rl("Total waktu",x.dur>0?fmtDur(x.dur):"–")+rl("Pace",x.pace>0?fmtPace(x.pace):"–");
+      h+=(x.mode?rl("Jenis",x.mode):"")+rl("Jarak",x.dist>0?fmt(x.dist,2)+" km":"–")+rl("Total waktu",x.dur>0?fmtDur(x.dur):"–")+rl("Pace",x.pace>0?fmtPace(x.pace):"–");
     }else{
       h+=rl("Total angkatan",Math.round(x.v).toLocaleString("id-ID")+" kg")+rl("Total waktu",x.dur>0?fmtDur(x.dur):"–");
       var it=Array.isArray(x.items)?x.items:[];
       h+='<div class="sd-h"><span>Gerakan</span><span>Beban · Set × Rep</span></div>';
-      h+=it.length?it.map(function(g){return '<div class="sd-i"><span>'+esc(g.n)+'</span><span>'+String(g.k).replace(".",",")+' kg · '+g.s+' × '+g.r+'</span></div>'}).join(""):'<div class="empty">Tidak ada rincian gerakan.</div>';
+      h+=it.length?it.map(function(g){
+        var ss=setsOf(g),gr=[];
+        ss.forEach(function(x){var z=gr[gr.length-1];if(z&&z.k===x.k&&z.r===x.r)z.c++;else gr.push({k:x.k,r:x.r,c:1})});
+        return '<div class="sd-i"><span>'+esc(g.n)+'</span><span class="sd-r">'+gr.map(function(z){return '<span>'+kg(z.k)+' kg · '+z.c+' × '+z.r+'</span>'}).join("")+'</span></div>';
+      }).join(""):'<div class="empty">Tidak ada rincian gerakan.</div>';
     }
     $("sdb").innerHTML=h;$("sd").classList.add("open");
   }
@@ -438,7 +465,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
     if(!S.c.st)S.c.st=Date.now();
     $("wType").textContent=label(S.c.t)+" "+fdateFull(S.c.d);fillEx();
     $("work").classList.toggle("cardio",S.c.t==="CARDIO");
-    if(S.c.t==="CARDIO"){$("cd").value=String(S.c.dist||"").replace(".",",");$("cerr").textContent=""}
+    if(S.c.t==="CARDIO"){$("cd").value=String(S.c.dist||"").replace(".",",");$("cerr").textContent="";setMode(S.c.mode||"")}
     $("home").hidden=true;$("work").hidden=false;S.v="work";
     clearInterval(iv);tick();iv=setInterval(tick,1000);
     if(save!==false)persist();drawList();
@@ -452,26 +479,34 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
   function drawList(){
     var items=S.c.items||[],l=$("list");
     $("wTotal").textContent=Math.round(vol(items)).toLocaleString("id-ID");
-    if(!items.length){l.innerHTML='<div class="empty">Belum ada gerakan. Pilih gerakan di atas lalu tekan Tambah.</div>';return}
-    l.innerHTML=items.map(function(i,ix){
-      return '<div class="item"><div><b>'+esc(i.n)+'</b><small>'+fmt(i.k,i.k%1?1:0)+' kg × '+i.s+' set × '+i.r+' rep</small></div><button data-x="'+ix+'" aria-label="Hapus '+esc(i.n)+'">×</button></div>';
+    if(!items.length){l.innerHTML='<div class="empty">Belum ada gerakan. Pilih gerakan di atas lalu tekan Tambah set.</div>';return}
+    l.innerHTML=items.map(function(it,ix){
+      var ss=setsOf(it);
+      return '<div class="ex"><div class="exh"><b>'+esc(it.n)+'</b><button class="addset" data-p="'+ix+'" aria-label="Tambah set '+esc(it.n)+'">+ Set</button></div>'+
+        ss.map(function(x,j){return '<div class="st"><span>Set '+(j+1)+'</span><span>'+kg(x.k)+' kg × '+x.r+' rep</span><button data-x="'+ix+':'+j+'" aria-label="Hapus set '+(j+1)+'">×</button></div>'}).join("")+'</div>';
     }).join("");
   }
   function add(){
-    var n=$("fn").value,k=parseFloat(String($("fk").value).replace(",",".")),s=parseInt($("fs").value,10),r=parseInt($("fr").value,10);
+    var n=$("fn").value,k=parseFloat(String($("fk").value).replace(",",".")),r=parseInt($("fr").value,10),c=parseInt($("fs").value,10);
+    if(!isFinite(c)||c<1)c=1;
     if(!n){$("werr").textContent="Pilih gerakan dulu.";return}
-    if(!isFinite(k)||k<0||!isFinite(s)||s<1||!isFinite(r)||r<1){$("werr").textContent="Isi beban, set, dan repetisi.";return}
-    $("werr").textContent="";
-    S.c.items.push({n:n,k:k,s:s,r:r});persist();
-    $("fn").value="";$("fk").value="";$("fs").value="";$("fr").value="";drawList();
+    if(!isFinite(k)||k<0||!isFinite(r)||r<1){$("werr").textContent="Isi beban dan repetisi.";return}
+    c=Math.min(c,20);$("werr").textContent="";
+    var items=S.c.items,it=null;
+    for(var i=0;i<items.length;i++)if(items[i].n===n){it=items[i];break}
+    if(!it){it={n:n,sets:[]};items.push(it)}
+    else if(!Array.isArray(it.sets)){it.sets=setsOf(it);delete it.k;delete it.s;delete it.r}
+    for(var j=0;j<c;j++)it.sets.push({k:k,r:r});
+    persist();$("fs").value="";drawList();
   }
   function done(){
     var c=S.c,cardio=c.t==="CARDIO",dur=c.st?Math.max(0,Math.round((Date.now()-c.st)/1000)):0;
     if(cardio){
+      if(!c.mode){$("cerr").textContent="Pilih Treadmill atau Luar Ruangan dulu.";return}
       var dist=Math.round(parseFloat(String($("cd").value).replace(",","."))*100)/100;
       if(!isFinite(dist)||dist<=0||dist>99.99){$("cerr").textContent="Isi jarak antara 0,01 dan 99,99 km.";return}
       var pace=Math.round(dur/dist);
-      S.s.push({d:c.d,t:c.t,v:0,items:[],dur:dur,dist:dist,pace:pace});S.c={};showHome();
+      S.s.push({d:c.d,t:c.t,v:0,items:[],dur:dur,dist:dist,pace:pace,mode:c.mode});S.c={};showHome();
       $("rDist").textContent=fmt(dist,2)+" km";$("rTime").textContent=fmtDur(dur);$("rPace").textContent=fmtPace(pace);
       $("res").classList.add("open");return;
     }
@@ -497,8 +532,18 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
   [["cd",2,2],["inp",3,1],["fk",3,2]].forEach(function(a){$(a[0]).addEventListener("input",function(){cleanDec(this,a[2],a[1])})});
   $("cd").addEventListener("change",function(){if(S.c&&S.c.t){S.c.dist=$("cd").value;persist()}});
   $("list").addEventListener("click",function(e){
-    var x=e.target.getAttribute&&e.target.getAttribute("data-x");if(x===null||x===undefined)return;
-    S.c.items.splice(+x,1);persist();drawList();
+    var t=e.target,x=t.getAttribute&&t.getAttribute("data-x"),p=t.getAttribute&&t.getAttribute("data-p");
+    if(x!==null&&x!==undefined){
+      var q=x.split(":"),it=S.c.items[+q[0]];if(!it)return;
+      var ss=setsOf(it).slice();ss.splice(+q[1],1);it.sets=ss;delete it.k;delete it.s;delete it.r;
+      if(!ss.length)S.c.items.splice(+q[0],1);
+      persist();drawList();return;
+    }
+    if(p!==null&&p!==undefined){
+      var it2=S.c.items[+p];if(!it2)return;
+      var s2=setsOf(it2),l=s2[s2.length-1]||{k:"",r:""};
+      $("fn").value=it2.n;$("fk").value=kg(l.k);$("fr").value=l.r;$("fk").focus();
+    }
   });
   $("hist").addEventListener("click",function(e){
     var k=e.target.getAttribute&&e.target.getAttribute("data-k");
@@ -532,7 +577,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
   }
   function closeMenu(){$("menu").hidden=true;$("acc").setAttribute("aria-expanded","false")}
   function avE(){$("avE").innerHTML=tmpImg?'<img src="'+tmpImg+'" alt="">':'<span>'+esc(ini($("pn").value))+'</span>'}
-  function openProfile(){tmpImg=S.p.img||"";$("pn").value=S.p.n||(PROF&&PROF.name)||"";$("perr").textContent="";avE();$("pf").classList.add("open")}
+  function openProfile(){tmpImg=S.p.img||"";$("pn").value=S.p.n||(PROF&&PROF.name)||"";$("pb").max=today();$("pb").value=PROF&&PROF.birth?PROF.birth:"";$("perr").textContent="";avE();$("pf").classList.add("open")}
   function pickFile(f){
     if(!f||!/^image\//.test(f.type)){$("perr").textContent="Pilih file gambar.";return}
     var r=new FileReader();
@@ -560,13 +605,22 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
   $("pn").addEventListener("input",function(){if(!tmpImg)avE()});
   $("pCancel").addEventListener("click",function(){$("pf").classList.remove("open")});
   $("pSave").addEventListener("click",function(){
-    var n=$("pn").value.trim();
+    var n=$("pn").value.trim(),b=$("pb").value;
     if(!n){$("perr").textContent="Nama tidak boleh kosong.";return}
-    S.p={n:n.slice(0,24),img:tmpImg};persist();renderProfile();$("pf").classList.remove("open");
+    if(!b||b>today()){$("perr").textContent="Tanggal lahir tidak valid.";return}
+    S.p={n:n.slice(0,24),img:tmpImg};persist();
+    var fin=function(){renderProfile();$("pf").classList.remove("open")};
+    if(PROF&&b!==PROF.birth){
+      $("pSave").disabled=true;
+      api({action:"profile",t:TOKEN,birth:b}).then(function(){PROF.birth=b;fin()}).catch(function(e){
+        $("perr").textContent=e.status?e.message:"Tidak bisa terhubung. Coba lagi.";
+      }).then(function(){$("pSave").disabled=false});
+    }else fin();
   });
   $("pf").addEventListener("click",function(e){if(e.target===this)this.classList.remove("open")});
   $("lgNo").addEventListener("click",function(){$("lg").classList.remove("open")});
   $("lg").addEventListener("click",function(e){if(e.target===this)this.classList.remove("open")});
+  function setMode(m){document.querySelectorAll(".mdb").forEach(function(b){b.setAttribute("aria-pressed",b.getAttribute("data-m")===m?"true":"false")})}
   function showAuth(w){
     $("vLogin").hidden=w!=="login";$("vSign").hidden=w!=="sign";
     $("a_lerr").textContent="";$("a_serr").textContent="";
@@ -608,6 +662,10 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
       if(e.status===401)toAuth();else toAuth("Tidak bisa terhubung. Muat ulang halaman.",true);
     });
   }
+  document.querySelectorAll(".mdb").forEach(function(b){b.addEventListener("click",function(){
+    if(!S.c||S.c.t!=="CARDIO")return;
+    S.c.mode=b.getAttribute("data-m");setMode(S.c.mode);$("cerr").textContent="";persist();
+  })});
   boot();
 })();
 </script>
